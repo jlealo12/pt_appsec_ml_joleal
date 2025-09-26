@@ -1751,6 +1751,7 @@ source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "strands-agents", extra = ["ollama", "openai"] },
     { name = "strands-agents-tools" },
@@ -1763,6 +1764,7 @@ notebook = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "pydantic", specifier = ">=2.11.9" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "strands-agents", extras = ["ollama", "openai"], specifier = ">=1.9.1" },
     { name = "strands-agents-tools", specifier = ">=0.2.8" },

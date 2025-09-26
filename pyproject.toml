@@ -8,6 +8,7 @@ dependencies = []
 
 [dependency-groups]
 dev = [
+    "pydantic>=2.11.9",
     "python-dotenv>=1.1.1",
     "strands-agents-tools>=0.2.8",
     "strands-agents[ollama,openai]>=1.9.1",
