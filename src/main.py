@@ -1,4 +1,5 @@
-"""Base API for the AntMan service"""
+"""Base API for the AntMan service
+Ref: https://auth0.com/blog/build-and-secure-fastapi-server-with-auth0/"""
 
 from fastapi import FastAPI
 
