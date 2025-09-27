@@ -1,10 +1,15 @@
 [project]
 name = "pt-appsec-ml-joleal"
-version = "0.1.0"
+version = "0.0.1"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi[standard]>=0.117.1",
+    "pydantic-settings>=2.11.0",
+    "pyjwt[crypto]>=2.10.1",
+    "uvicorn>=0.37.0",
+]
 
 [dependency-groups]
 dev = [
