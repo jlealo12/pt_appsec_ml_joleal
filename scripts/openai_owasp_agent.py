@@ -2,6 +2,8 @@
 
 from strands import Agent
 from strands.models.openai import OpenAIModel
+
+# from strands.models
 from dotenv import load_dotenv
 import os
 
@@ -17,6 +19,13 @@ def get_owasp_prompt(risk_code: str) -> str:
         return file.read()
 
 
+EVALUATION_CONFIG = {
+    "rules": {
+        "A01_BAC": {"name": "Broken Access Control"},
+        "A02_CF": {"name": "Cryptographic Failures"},
+        "A03_Injection": {"name": "Injection"},
+    }
+}
 OWASP_CODE = "A02_CF"  # ["A01_BAC", "A02_CF", "A03_Injection", ""]
 OWASP_NAME = "Cryptographic Failures"  # ["Broken Access Control", "Cryptographic Failures", "Injection"]
 AGENT_PROMPT = get_owasp_prompt(OWASP_CODE)
@@ -25,7 +34,7 @@ USER_PROMPT_TEMPLATE = (
     "Provide a detailed explanation of any vulnerabilities found, including how they can be exploited and recommendations for mitigation.\n"
     "Here is the code:\n<code>\n{code_snippet}\n</code>"
 )
-model = OpenAIModel(
+MODEL = OpenAIModel(
     client_args={
         "api_key": os.getenv("OPENAI_API_KEY"),
     },
@@ -38,22 +47,41 @@ model = OpenAIModel(
     },
 )
 
-# Create an agent using the model
-agent = Agent(
-    model=model,
-    system_prompt=AGENT_PROMPT,
-    callback_handler=None,
-)
+
+def run_agent_inference(code_snippet: str, owasp_id: str, owasp_name: str) -> dict:
+    """Function to run the agent inference on a given code snippet."""
+    agent_prompt = get_owasp_prompt(owasp_id)
+    ############### Model configuration can be adjusted here if needed #################
+
+    # Create an agent using the model
+    agent = Agent(
+        model=MODEL,
+        system_prompt=agent_prompt,
+        callback_handler=None,
+    )
+    user_prompt = USER_PROMPT_TEMPLATE.format(
+        code_snippet=code_snippet,
+        owasp_name=owasp_name,
+    ).strip()
+    response = agent(user_prompt)
+    payload = {
+        "owasp_name": owasp_name,
+        "response": str(response),
+        "metrics": response.metrics,
+    }
+    return payload
+
 
 # Use the agent
 sample_code_snippet = """import os
 def run_command_from_user_input(command):
 os.system(f'echo {command}')"""
-user_prompt = USER_PROMPT_TEMPLATE.format(
-    code_snippet=sample_code_snippet,
-    owasp_name=OWASP_NAME,
-).strip()
-response = agent(user_prompt)
 
-print(str(response))
-print(response.metrics)
+for rule_key, rule_info in EVALUATION_CONFIG["rules"].items():
+    print(f"Running agent for {rule_key} - {rule_info['name']}")
+    result = run_agent_inference(
+        code_snippet=sample_code_snippet,
+        owasp_id=rule_key,
+        owasp_name=rule_info["name"],
+    )
+    print(result)
