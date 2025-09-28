@@ -59,7 +59,10 @@ async def health_check():
 
 
 @app.post("/evaluate", response_model=CodeEvaluationResponse)
-async def evaluate_code(request: CodeEvaluationRequest):
+async def evaluate_code(
+    request: CodeEvaluationRequest,
+    auth_result: str = Security(auth.verify),
+):
     """
     Evaluate code snippet using the OWASP workflow
     """
@@ -87,8 +90,6 @@ async def validate_commit(
     """Validates a commit to check the evaluation results"""
     try:
         print(f"Validating commit: {request.hash}")
-        print("Auth result:")
-        print(auth_result)
         return CommitValidationResponse(result=["TODO: implementar"], status="success")
     except Exception as e:
         raise HTTPException(
