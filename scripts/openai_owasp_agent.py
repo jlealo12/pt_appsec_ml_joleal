@@ -3,7 +3,7 @@
 from strands import Agent
 from strands.models.openai import OpenAIModel
 
-# from strands.models
+import asyncio
 from dotenv import load_dotenv
 import os
 
@@ -50,6 +50,7 @@ MODEL = OpenAIModel(
 
 def run_agent_inference(code_snippet: str, owasp_id: str, owasp_name: str) -> dict:
     """Function to run the agent inference on a given code snippet."""
+    print(f"Running agent for {owasp_id}")
     agent_prompt = get_owasp_prompt(owasp_id)
     ############### Model configuration can be adjusted here if needed #################
 
@@ -77,11 +78,33 @@ sample_code_snippet = """import os
 def run_command_from_user_input(command):
 os.system(f'echo {command}')"""
 
-for rule_key, rule_info in EVALUATION_CONFIG["rules"].items():
-    print(f"Running agent for {rule_key} - {rule_info['name']}")
-    result = run_agent_inference(
-        code_snippet=sample_code_snippet,
-        owasp_id=rule_key,
-        owasp_name=rule_info["name"],
-    )
-    print(result)
+# for rule_key, rule_info in EVALUATION_CONFIG["rules"].items():
+#     print(f"Running agent for {rule_key} - {rule_info['name']}")
+#     result = run_agent_inference(
+#         code_snippet=sample_code_snippet,
+#         owasp_id=rule_key,
+#         owasp_name=rule_info["name"],
+#     )
+#     print(result)
+
+
+# Asynchronous execution to run multiple inferences concurrently
+async def run_all_inference():
+    loop = asyncio.get_running_loop()
+    tasks = [
+        asyncio.to_thread(
+            run_agent_inference,
+            code_snippet=sample_code_snippet,
+            owasp_id=rule_key,
+            owasp_name=rule_info["name"],
+        )
+        for rule_key, rule_info in EVALUATION_CONFIG["rules"].items()
+    ]
+    results = await asyncio.gather(*tasks)
+    for result in results:
+        print(f"Results for rule: {result['owasp_name']}\n")
+        print(result["response"])
+        print("\n" + "=" * 80 + "\n")
+
+
+asyncio.run(run_all_inference())
