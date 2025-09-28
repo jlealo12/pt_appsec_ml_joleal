@@ -1908,7 +1908,7 @@ wheels = [
 
 [[package]]
 name = "pt-appsec-ml-joleal"
-version = "0.0.2"
+version = "0.0.3"
 source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
