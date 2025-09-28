@@ -1,9 +1,9 @@
 [project]
 name = "pt-appsec-ml-joleal"
-version = "0.0.7"
+version = "0.0.8"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "fastapi[standard]>=0.117.1",
     "pydantic>=2.11.9",
