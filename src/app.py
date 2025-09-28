@@ -37,6 +37,15 @@ class CodeEvaluationResponse(BaseModel):
     status: str = "success"
 
 
+class CommitValidationRequest(BaseModel):
+    hash: str
+
+
+class CommitValidationResponse(BaseModel):
+    result: list
+    status: str = "success"
+
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to the AntMan API"}
@@ -66,6 +75,18 @@ async def evaluate_code(request: CodeEvaluationRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error evaluating code: {str(e)}")
+
+
+@app.post("/validate", response_model=CommitValidationResponse)
+async def validate_commit(request: CommitValidationRequest):
+    """Validates a commit to check the evaluation results"""
+    try:
+        print(f"Validating commit: {request.hash}")
+        return CommitValidationResponse(result=["TODO: implementar"], status="success")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error validating commit: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
