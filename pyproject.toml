@@ -1,6 +1,6 @@
 [project]
 name = "pt-appsec-ml-joleal"
-version = "0.0.5"
+version = "0.0.6"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -10,6 +10,8 @@ dependencies = [
     "pydantic-settings>=2.11.0",
     "pyjwt[crypto]>=2.10.1",
     "python-dotenv>=1.1.1",
+    "strands-agents-tools>=0.2.8",
+    "strands-agents[ollama,openai]>=1.9.1",
     "uvicorn>=0.37.0",
 ]
 
