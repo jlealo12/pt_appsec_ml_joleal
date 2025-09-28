@@ -431,10 +431,10 @@ class OAuth2PKCEFlow:
             print("   (Si no se abre automáticamente, copia esta URL en tu navegador)")
             print(f"   {auth_url}")
 
-            if webbrowser.open(auth_url):
-                print("✓ Navegador abierto")
-            else:
-                print("⚠ No se pudo abrir el navegador automáticamente")
+            # if webbrowser.open(auth_url):
+            #     print("✓ Navegador abierto")
+            # else:
+            #     print("⚠ No se pudo abrir el navegador automáticamente")
 
             # Paso 4: Esperar callback (con timeout)
             print("⏳ Esperando autorización del usuario...")
