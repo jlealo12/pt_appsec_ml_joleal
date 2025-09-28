@@ -6,19 +6,17 @@ Etapa 1: Preparación PKCE y estructura base
 
 import base64
 import hashlib
-import secrets
-import os
-from pathlib import Path
-from typing import Optional, Dict, Any
-from dataclasses import dataclass
-from urllib.parse import urlencode, urlparse, parse_qs
 import json
+import os
+import secrets
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Optional
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
-from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-
-load_dotenv()
+from pydantic import BaseModel, Field
 
 
 class PKCEParams(BaseModel):
@@ -49,6 +47,55 @@ class Auth0Config:
     audience: str  # Tu API identifier
     scopes: list[str]
     redirect_port: int = 8080
+
+    @classmethod
+    def load_from_env(cls, env_file: Optional[str] = None) -> "Auth0Config":
+        """
+        Carga la configuración desde variables de entorno
+
+        Args:
+            env_file: Ruta opcional al archivo .env
+
+        Variables de entorno esperadas:
+            - AUTH0_DOMAIN: El dominio de Auth0 (ej: tu-app.auth0.com)
+            - AUTH0_CLIENT_ID: Client ID de la aplicación
+            - AUTH0_AUDIENCE: API Identifier de tu API
+            - AUTH0_SCOPES: Scopes separados por coma (ej: openid,profile,offline_access)
+            - AUTH0_REDIRECT_PORT: Puerto para callback (opcional, default: 8080)
+        """
+        # Cargar archivo .env si se especifica
+        if env_file:
+            load_dotenv(env_file)
+        else:
+            load_dotenv()  # Busca .env en el directorio actual
+
+        # Obtener variables requeridas
+        domain = os.getenv("AUTH0_DOMAIN")
+        if not domain:
+            raise ValueError("AUTH0_DOMAIN es requerida en las variables de entorno")
+
+        client_id = os.getenv("AUTH0_CLIENT_ID")
+        if not client_id:
+            raise ValueError("AUTH0_CLIENT_ID es requerida en las variables de entorno")
+
+        audience = os.getenv("AUTH0_AUDIENCE")
+        if not audience:
+            raise ValueError("AUTH0_AUDIENCE es requerida en las variables de entorno")
+
+        # Procesar scopes
+        scopes_str = os.getenv("AUTH0_SCOPES", "openid,profile,offline_access")
+        scopes = [scope.strip() for scope in scopes_str.split(",")]
+
+        # Puerto con valor por defecto
+        redirect_port = int(os.getenv("AUTH0_REDIRECT_PORT", "8080"))
+
+        return cls(
+            domain=domain,
+            client_id=client_id,
+            audience=audience,
+            scopes=scopes,
+            redirect_port=redirect_port,
+        )
 
 
 class PKCEGenerator:
@@ -220,6 +267,24 @@ class OAuth2PKCEFlow:
 
 def main():
     """Función principal para testing"""
+    try:
+        # Cargar configuración desde variables de entorno
+        config = Auth0Config.load_from_env()
+        print(f"✓ Configuración cargada: {config.domain}")
+
+    except ValueError as e:
+        print(f"❌ Error de configuración: {e}")
+        print("\n📋 Variables de entorno requeridas:")
+        print("   AUTH0_DOMAIN=tu-dominio.auth0.com")
+        print("   AUTH0_CLIENT_ID=tu_client_id")
+        print("   AUTH0_AUDIENCE=https://tu-api.com")
+        print("   AUTH0_SCOPES=openid,profile,offline_access  # opcional")
+        print("   AUTH0_REDIRECT_PORT=8080  # opcional")
+        print("\n💡 Crea un archivo .env con estas variables")
+        return
+
+    # Crear instancia del flujo OAuth
+    oauth_flow = OAuth2PKCEFlow(config)
 
     # Demostración de generación PKCE
     print("=== Demostración Generación PKCE ===")
@@ -229,26 +294,15 @@ def main():
     print(f"State: {pkce.state}")
     print(f"Length verifier: {len(pkce.code_verifier)} caracteres")
 
-    # # Configuración de ejemplo (reemplazar con valores reales)
-    # config = Auth0Config(
-    #     domain="tu-dominio.auth0.com",
-    #     client_id="tu_client_id",
-    #     audience="https://tu-api.com",
-    #     scopes=["openid", "profile", "offline_access"],
-    # )
+    # Demostración de construcción de URL
+    print("\n=== URL de Autorización ===")
+    auth_url = oauth_flow.build_authorization_url()
+    print(f"URL: {auth_url[:100]}...")
 
-    # # Crear instancia del flujo OAuth
-    # oauth_flow = OAuth2PKCEFlow(config)
-
-    # # Demostración de construcción de URL
-    # print("\n=== URL de Autorización ===")
-    # auth_url = oauth_flow.build_authorization_url()
-    # print(f"URL: {auth_url[:100]}...")
-
-    # # Demostración de almacenamiento
-    # print("\n=== Sistema de Almacenamiento ===")
-    # print(f"Directorio config: {oauth_flow.storage.config_dir}")
-    # print(f"Archivo tokens: {oauth_flow.storage.token_file}")
+    # Demostración de almacenamiento
+    print("\n=== Sistema de Almacenamiento ===")
+    print(f"Directorio config: {oauth_flow.storage.config_dir}")
+    print(f"Archivo tokens: {oauth_flow.storage.token_file}")
 
 
 if __name__ == "__main__":
