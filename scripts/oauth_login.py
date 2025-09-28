@@ -9,13 +9,19 @@ import hashlib
 import json
 import os
 import secrets
+import threading
+import time
+import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
+import uvicorn
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 
@@ -205,6 +211,9 @@ class OAuth2PKCEFlow:
         self.config = config
         self.storage = TokenStorage()
         self.pkce_params: Optional[PKCEParams] = None
+        self.authorization_code: Optional[str] = None
+        self.callback_received = threading.Event()
+        self.callback_error: Optional[str] = None
 
     def build_authorization_url(self) -> str:
         """Construye la URL de autorización con parámetros PKCE"""
@@ -264,6 +273,201 @@ class OAuth2PKCEFlow:
         print("✓ Callback válido - código de autorización recibido")
         return code, True
 
+    def create_callback_server(self) -> FastAPI:
+        """Crea el servidor FastAPI para manejar el callback"""
+        app = FastAPI()
+
+        @app.get("/callback")
+        async def callback(request: Request):
+            """Endpoint que maneja el callback de Auth0"""
+            try:
+                # Construir URL completa del callback
+                callback_url = str(request.url)
+
+                # Validar parámetros del callback
+                code, is_valid = self.validate_callback_params(callback_url)
+
+                if is_valid:
+                    self.authorization_code = code
+                    self.callback_error = None
+
+                    # Página de éxito
+                    success_html = """
+                    <html>
+                        <head><title>Autenticación Exitosa</title></head>
+                        <body style="font-family: Arial; text-align: center; padding: 50px;">
+                            <h1 style="color: green;">✓ Autenticación Exitosa</h1>
+                            <p>Ya puedes cerrar esta ventana y regresar a la terminal.</p>
+                            <script>
+                                setTimeout(() => window.close(), 3000);
+                            </script>
+                        </body>
+                    </html>
+                    """
+                    response_content = success_html
+                else:
+                    self.callback_error = "Parámetros de callback inválidos"
+
+                    # Página de error
+                    error_html = """
+                    <html>
+                        <head><title>Error de Autenticación</title></head>
+                        <body style="font-family: Arial; text-align: center; padding: 50px;">
+                            <h1 style="color: red;">❌ Error de Autenticación</h1>
+                            <p>Hubo un problema con la autenticación. Revisa la terminal para más detalles.</p>
+                            <script>
+                                setTimeout(() => window.close(), 5000);
+                            </script>
+                        </body>
+                    </html>
+                    """
+                    response_content = error_html
+
+                # Señalar que el callback fue recibido
+                self.callback_received.set()
+
+                return HTMLResponse(content=response_content)
+
+            except Exception as e:
+                self.callback_error = f"Error procesando callback: {str(e)}"
+                self.callback_received.set()
+                raise HTTPException(status_code=500, detail=str(e))
+
+        return app
+
+    def start_callback_server(self) -> threading.Thread:
+        """Inicia el servidor de callback en un hilo separado"""
+        app = self.create_callback_server()
+
+        def run_server():
+            uvicorn.run(
+                app,
+                host="127.0.0.1",
+                port=self.config.redirect_port,
+                log_level="error",  # Solo mostrar errores
+            )
+
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+
+        # Esperar un poco para que el servidor arranque
+        time.sleep(2)
+        return server_thread
+
+    def exchange_code_for_tokens(self, authorization_code: str) -> TokenResponse:
+        """Intercambia el código de autorización por tokens"""
+        if not self.pkce_params:
+            raise ValueError("Parámetros PKCE no disponibles")
+
+        token_url = f"https://{self.config.domain}/oauth/token"
+        redirect_uri = f"http://localhost:{self.config.redirect_port}/callback"
+
+        # Datos para el intercambio
+        token_data = {
+            "grant_type": "authorization_code",
+            "client_id": self.config.client_id,
+            "code": authorization_code,
+            "redirect_uri": redirect_uri,
+            "code_verifier": self.pkce_params.code_verifier,
+        }
+
+        # Realizar petición
+        headers = {"Content-Type": "application/x-www-form-urlencoded"}
+
+        print("🔄 Intercambiando código por tokens...")
+        response = requests.post(token_url, data=token_data, headers=headers)
+
+        if response.status_code != 200:
+            error_msg = f"Error obteniendo tokens: {response.status_code}"
+            try:
+                error_detail = response.json()
+                error_msg += f" - {error_detail.get('error_description', error_detail.get('error', ''))}"
+            except:
+                error_msg += f" - {response.text}"
+            raise Exception(error_msg)
+
+        # Parsear respuesta
+        token_json = response.json()
+        print("✓ Tokens obtenidos exitosamente")
+
+        return TokenResponse(**token_json)
+
+    def test_api_connection(self, access_token: str) -> bool:
+        """Prueba la conexión con la API usando el access token"""
+        # Esta es una prueba básica - ajustar según tu API
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        try:
+            # Puedes cambiar esta URL por un endpoint de tu API
+            test_url = f"{self.config.audience}/test"  # endpoint de prueba
+            response = requests.get(test_url, headers=headers, timeout=10)
+
+            if response.status_code == 200:
+                print("✓ Conexión con API confirmada")
+                return True
+            else:
+                print(f"⚠ API respondió con status {response.status_code}")
+                return False
+
+        except requests.exceptions.RequestException as e:
+            print(f"⚠ No se pudo probar conexión con API: {e}")
+            return False
+
+    def run_authentication_flow(self) -> bool:
+        """Ejecuta el flujo completo de autenticación"""
+        try:
+            print("🚀 Iniciando flujo de autenticación OAuth2.0 + PKCE")
+
+            # Paso 1: Iniciar servidor de callback
+            print("🔧 Iniciando servidor local para callback...")
+            server_thread = self.start_callback_server()
+
+            # Paso 2: Construir URL de autorización
+            auth_url = self.build_authorization_url()
+            print(f"🔗 URL de autorización generada")
+
+            # Paso 3: Abrir navegador
+            print("🌐 Abriendo navegador para autenticación...")
+            print("   (Si no se abre automáticamente, copia esta URL en tu navegador)")
+            print(f"   {auth_url}")
+
+            if webbrowser.open(auth_url):
+                print("✓ Navegador abierto")
+            else:
+                print("⚠ No se pudo abrir el navegador automáticamente")
+
+            # Paso 4: Esperar callback (con timeout)
+            print("⏳ Esperando autorización del usuario...")
+            callback_received = self.callback_received.wait(timeout=300)  # 5 minutos
+
+            if not callback_received:
+                print("❌ Timeout esperando autorización del usuario")
+                return False
+
+            if self.callback_error:
+                print(f"❌ Error en callback: {self.callback_error}")
+                return False
+
+            if not self.authorization_code:
+                print("❌ No se recibió código de autorización")
+                return False
+
+            # Paso 5: Intercambiar código por tokens
+            tokens = self.exchange_code_for_tokens(self.authorization_code)
+
+            # Paso 6: Guardar tokens
+            self.storage.save_tokens(tokens)
+
+            # Paso 7: Probar conexión con API
+            self.test_api_connection(tokens.access_token)
+
+            print("🎉 ¡Autenticación completada exitosamente!")
+            return True
+
+        except Exception as e:
+            print(f"❌ Error en flujo de autenticación: {e}")
+            return False
+
 
 def main():
     """Función principal para testing"""
@@ -286,23 +490,22 @@ def main():
     # Crear instancia del flujo OAuth
     oauth_flow = OAuth2PKCEFlow(config)
 
-    # Demostración de generación PKCE
-    print("=== Demostración Generación PKCE ===")
-    pkce = PKCEGenerator.generate_pkce_params()
-    print(f"Code Verifier: {pkce.code_verifier}")
-    print(f"Code Challenge: {pkce.code_challenge}")
-    print(f"State: {pkce.state}")
-    print(f"Length verifier: {len(pkce.code_verifier)} caracteres")
+    # Verificar si ya tenemos tokens válidos
+    existing_tokens = oauth_flow.storage.load_tokens()
+    if existing_tokens:
+        print("🔍 Tokens existentes encontrados")
+        # Aquí podrías implementar lógica para verificar si el access token aún es válido
+        # Por ahora, procedemos con nueva autenticación
 
-    # Demostración de construcción de URL
-    print("\n=== URL de Autorización ===")
-    auth_url = oauth_flow.build_authorization_url()
-    print(f"URL: {auth_url[:100]}...")
+    # Ejecutar flujo completo de autenticación
+    success = oauth_flow.run_authentication_flow()
 
-    # Demostración de almacenamiento
-    print("\n=== Sistema de Almacenamiento ===")
-    print(f"Directorio config: {oauth_flow.storage.config_dir}")
-    print(f"Archivo tokens: {oauth_flow.storage.token_file}")
+    if success:
+        print("\n✅ Proceso completado exitosamente")
+        print("Los tokens están guardados y listos para usar en el precommit-hook")
+    else:
+        print("\n❌ Proceso falló")
+        print("Revisa la configuración y vuelve a intentar")
 
 
 if __name__ == "__main__":
