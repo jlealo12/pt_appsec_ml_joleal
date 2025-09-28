@@ -5,16 +5,18 @@ import asyncio
 import os
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security
 from pydantic import BaseModel
 
 from .utils import get_env_variable
 from .workflow import OwaspWorkflow
+from .auth_utils import VerifyToken
 
 # Load environment variables
 load_dotenv()
 
 app = FastAPI(title="AntMan API", version="0.1.0")
+auth = VerifyToken()
 
 # Initialize the workflow
 try:
@@ -78,18 +80,17 @@ async def evaluate_code(request: CodeEvaluationRequest):
 
 
 @app.post("/validate", response_model=CommitValidationResponse)
-async def validate_commit(request: CommitValidationRequest):
+async def validate_commit(
+    request: CommitValidationRequest,
+    auth_result: str = Security(auth.verify),
+):
     """Validates a commit to check the evaluation results"""
     try:
         print(f"Validating commit: {request.hash}")
+        print("Auth result:")
+        print(auth_result)
         return CommitValidationResponse(result=["TODO: implementar"], status="success")
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error validating commit: {str(e)}"
         )
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8080)
