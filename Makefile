@@ -12,6 +12,6 @@ commit-tag:
 
 push:
 	git push &&	git push --tags
-	
+
 run:
-	uv run fastapi dev .\src\app.py
+	uv run fastapi dev src/app.py
