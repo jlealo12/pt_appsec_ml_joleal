@@ -1,16 +1,29 @@
-"""Base API for the AntMan service
-Ref: https://auth0.com/blog/build-and-secure-fastapi-server-with-auth0/"""
+"""main entrypoint for testing"""
 
-from fastapi import FastAPI
+import asyncio
+import json
+import os
 
-app = FastAPI(title="AntMan API", version="0.1.0")
+from dotenv import load_dotenv
+from .utils import get_env_variable
+from .workflow import OwaspWorkflow
+
+load_dotenv()  # Load environment variables from .env file
 
 
-@app.get("/")
-async def root():
-    return {"message": "Welcome to the AntMan API"}
+def pprint(data):
+    print(json.dumps(data, indent=2, ensure_ascii=False))
 
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok"}
+if __name__ == "__main__":
+    CONFIG_PATH = os.path.join(
+        os.path.dirname(__file__),
+        get_env_variable("CONFIG_PATH"),
+    )
+    workflow = OwaspWorkflow(CONFIG_PATH)
+    sample_code_snippet = """import os
+    def run_command_from_user_input(command):
+    os.system(f'echo {command}')"""
+
+    result = asyncio.run(workflow.run_async_inference(sample_code_snippet))
+    pprint(result)

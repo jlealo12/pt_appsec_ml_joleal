@@ -1,0 +1,37 @@
+{
+    "rules": {
+        "A01_BAC": {
+            "name": "Broken Access Control",
+            "prompt_path": "prompts/A01_BAC.md",
+            "model_config": {
+                "model": "gpt-4o",
+                "params": {
+                    "temperature": 0,
+                    "max_tokens": 1000
+                }
+            }
+        },
+        "A02_CF": {
+            "name": "Cryptographic Failures",
+            "prompt_path": "prompts/A02_CF.md",
+            "model_config": {
+                "model": "gpt-4o",
+                "params": {
+                    "temperature": 0,
+                    "max_tokens": 1000
+                }
+            }
+        },
+        "A03_Injection": {
+            "name": "Injection",
+            "prompt_path": "prompts/A03_Injection.md",
+            "model_config": {
+                "model": "gpt-4o",
+                "params": {
+                    "temperature": 0,
+                    "max_tokens": 1000
+                }
+            }
+        }
+    }
+}
