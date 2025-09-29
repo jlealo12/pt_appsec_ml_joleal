@@ -79,11 +79,7 @@ El desarrollo se organizó en 3 repositorios:
 │   │   │   ├── 00-brief.md
 │   │   │   ├── 01-requisitos.md
 │   │   │   ├── 02-supuestos.md
-│   │   │   ├── 03-diagramas.md
-│   │   │   ├── 04-adrs.md
-│   │   │   └── 05-datos.md
-│   │   ├── autenticacion
-│   │   │   └── autenticacion.md
+│   │   │   └── 03-diagramas.md
 │   │   └── diagramas
 │   │       └── diagramas_pt_appsec.drawio
 │   ├── main.py
