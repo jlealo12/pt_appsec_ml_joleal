@@ -45,6 +45,7 @@ class OwaspAgent:
         payload = {
             "owasp_name": self.owasp_name,
             "response": str(response),
+            "pass": "suggested_fix:" not in str(response),
             "metrics": usage_metrics,
         }
         return payload

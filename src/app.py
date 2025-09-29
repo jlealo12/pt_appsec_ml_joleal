@@ -1,7 +1,6 @@
 """Base API for the AntMan service
 Ref: https://auth0.com/blog/build-and-secure-fastapi-server-with-auth0/"""
 
-import asyncio
 import os
 
 from dotenv import load_dotenv
@@ -75,8 +74,10 @@ async def evaluate_code(
     try:
         # Run the async inference with the provided code
         result = await workflow.run_async_inference(request.code)
+        evaluation_status = all([x["pass"] for x in result])
+        status_str = "success" if evaluation_status else "failed"
 
-        return CodeEvaluationResponse(result=result, status="success")
+        return CodeEvaluationResponse(result=result, status=status_str)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error evaluating code: {str(e)}")
