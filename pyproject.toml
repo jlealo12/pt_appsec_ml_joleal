@@ -1,6 +1,6 @@
 [project]
 name = "pt-appsec-ml-joleal"
-version = "0.0.11"
+version = "0.0.12"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
