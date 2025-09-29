@@ -65,10 +65,14 @@ def run_agent_inference(code_snippet: str, owasp_id: str, owasp_name: str) -> di
         owasp_name=owasp_name,
     ).strip()
     response = agent(user_prompt)
+    usage_metrics = {
+        **response.metrics.accumulated_usage,
+        "latencyMs": round(sum(response.metrics.cycle_durations) * 1000, 0),
+    }
     payload = {
         "owasp_name": owasp_name,
         "response": str(response),
-        "metrics": response.metrics,
+        "metrics": usage_metrics,
     }
     return payload
 
@@ -101,10 +105,11 @@ async def run_all_inference():
         for rule_key, rule_info in EVALUATION_CONFIG["rules"].items()
     ]
     results = await asyncio.gather(*tasks)
-    for result in results:
-        print(f"Results for rule: {result['owasp_name']}\n")
-        print(result["response"])
-        print("\n" + "=" * 80 + "\n")
+    return results
 
 
-asyncio.run(run_all_inference())
+results = asyncio.run(run_all_inference())
+for result in results:
+    print(f"Results for rule: {result['owasp_name']}\n")
+    print(result["response"])
+    print("\n" + "=" * 80 + "\n")

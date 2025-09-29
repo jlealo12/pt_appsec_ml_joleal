@@ -11,7 +11,6 @@ import os
 import secrets
 import threading
 import time
-import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
