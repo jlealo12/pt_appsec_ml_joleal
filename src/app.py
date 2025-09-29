@@ -53,7 +53,7 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check(auth_result: str = Security(auth.verify)):
     return {"status": "ok"}
 
 
